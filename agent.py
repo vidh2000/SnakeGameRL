@@ -11,13 +11,19 @@ MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
 LR = 0.005
 
+FRESHSTART = True
+
 class Agent:
     def __init__(self):
         self.n_game = 0
         self.epsilon = 0 # Randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(11,256,32,3) 
+        self.model = Linear_QNet(11,256,128,3) 
+        if not FRESHSTART:
+            modelpath = r'C:\Users\Asus\Documents\Coding\Python\Machine Learning\SnakeGameRL\model.pth'
+            self.model.load_state_dict(torch.load(modelpath))
+
         self.trainer = QTrainer(self.model,lr=LR,gamma=self.gamma)
         # for n,p in self.model.named_parameters():
         #     print(p.device,'',n) 
@@ -97,7 +103,7 @@ class Agent:
 
     def get_action(self,state):
         # random moves: tradeoff explotation / exploitation
-        self.epsilon = 50 - self.n_game
+        self.epsilon = 80 - self.n_game
         final_move = [0,0,0]
         if(random.randint(0,200) < self.epsilon):
             move = random.randint(0,2)
@@ -113,8 +119,9 @@ def train():
     plot_scores = []
     plot_mean_scores = []
     total_score = 0
-    record = 0
+    record = -100
     agent = Agent()
+
     game = SnakeGameAI()
     while True:
         # Get Old state
@@ -125,6 +132,7 @@ def train():
 
         # perform move and get new state
         reward, done, score = game.play_step(final_move)
+
         # Count number of moves before getting to an apple
         game.numberEmptyMoves +=1
         state_new = agent.get_state(game)
@@ -141,13 +149,13 @@ def train():
             agent.n_game += 1
             agent.train_long_memory()
             print('Game:',agent.n_game,'Score:',score,"Reward =", reward)
-            if(score > reward): # new High score 
-                reward = score
+            if(reward > record): # new High score 
+                record = reward
                 agent.model.save()
             #print('Game:',agent.n_game,'Score:',score)
             
             plot_scores.append(score)
-            total_score+=score
+            total_score += score
             mean_score = total_score / agent.n_game
             plot_mean_scores.append(mean_score)
             plot(plot_scores,plot_mean_scores)

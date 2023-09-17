@@ -49,7 +49,7 @@ class SnakeGameAI:
                       Point(self.head.x-BLOCK_SIZE,self.head.y),
                       Point(self.head.x-(2*BLOCK_SIZE),self.head.y)]
         self.score = 0
-        self.reward = 0  # eat food: +10 , game over: -10 , move: -turn_penalty
+        self.reward = 0  # eat food: +10 , game over: -10 , move: -turn_penalty...
         self.food = None
         self._place__food()
         self.frame_iteration = 0
@@ -74,7 +74,7 @@ class SnakeGameAI:
                 quit()
             
         # 2. Move
-        turn_penalty = 0.005 # penalty for turning too much
+        turn_penalty = 0.01 # penalty for turning too much
         self._move(action,turn_penalty)
         self.snake.insert(0,self.head)
 
