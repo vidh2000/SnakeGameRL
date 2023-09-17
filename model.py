@@ -5,15 +5,21 @@ import torch.nn.functional as F
 import os
 
 class Linear_QNet(nn.Module):
-    def __init__(self,input_size,hidden_size,output_size):
+    def __init__(self,input_size,hidden_size1,hidden_size2,output_size):
         super().__init__()
-        self.linear1 = nn.Linear(input_size,hidden_size).cuda()
-        self.linear2 = nn.Linear(hidden_size,output_size).cuda()
+        self.linear1 = nn.Linear(input_size,hidden_size1).cuda()
+        self.relu1 = nn.ReLU().cuda()
+        self.linear2 = nn.Linear(hidden_size1,hidden_size2).cuda()
+        self.relu2 = nn.ReLU()
+        self.linear3 = nn.Linear(hidden_size2,output_size).cuda()
     
     def forward(self, x):
         x = F.relu(self.linear1(x))
+        x = self.relu1(x)
         x = self.linear2(x)
-        return x
+        x = self.relu2(x)
+        x = self.linear2(x)
+        return F.sigmoid(x)
     
     def save(self, file_name='model.pth'):
         model_folder_path = r'C:\Users\Asus\Documents\Coding\Python\Machine Learning\SnakeGameRL' 
@@ -27,8 +33,8 @@ class QTrainer:
         self.model = model
         self.optimer = optim.Adam(model.parameters(),lr = self.lr)    
         self.criterion = nn.MSELoss()
-        for i in self.model.parameters():
-            print(i.is_cuda)
+        # for i in self.model.parameters():
+        #     print(i.is_cuda)
 
     
     def train_step(self,state,action,reward,next_state,done):

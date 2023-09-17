@@ -49,10 +49,11 @@ class SnakeGameAI:
                       Point(self.head.x-BLOCK_SIZE,self.head.y),
                       Point(self.head.x-(2*BLOCK_SIZE),self.head.y)]
         self.score = 0
+        self.reward = 0  # eat food: +10 , game over: -10 , move: -turn_penalty
         self.food = None
         self._place__food()
         self.frame_iteration = 0
-      
+        self.numberEmptyMoves = 0
 
     def _place__food(self):
         x = random.randint(0,(self.w-BLOCK_SIZE)//BLOCK_SIZE)*BLOCK_SIZE
@@ -63,6 +64,7 @@ class SnakeGameAI:
 
 
     def play_step(self,action):
+
         self.frame_iteration+=1
 
         # 1. Collect the user input
@@ -72,21 +74,31 @@ class SnakeGameAI:
                 quit()
             
         # 2. Move
-        self._move(action)
+        turn_penalty = 0.005 # penalty for turning too much
+        self._move(action,turn_penalty)
         self.snake.insert(0,self.head)
 
         # 3. Check if game Over
-        reward = 0  # eat food: +10 , game over: -10 , else: 0
+                # - due to taking too long to find an apple
+                # - due to collision
+                # - due to 
         game_over = False 
-        if(self.is_collision() or self.frame_iteration > 100*len(self.snake) ):
+        if self.numberEmptyMoves>200:
             game_over=True
-            reward = -10
-            return reward,game_over,self.score
+            self.reward -= 1
+            return self.reward,game_over,self.score
         
+        elif(self.is_collision() or self.frame_iteration > 100*len(self.snake) ):
+            game_over=True
+            self.reward -= 1
+            return self.reward,game_over,self.score
+        
+
         # 4. Place new Food or just move
         if(self.head == self.food):
-            self.score+=1
-            reward=10
+            self.score +=10
+            self.reward +=10
+            self.numberEmptyMoves = 0
             self._place__food()
         else:
             self.snake.pop()
@@ -96,7 +108,7 @@ class SnakeGameAI:
         self.clock.tick(SPEED)
 
         # 6. Return game Over and Display Score
-        return reward,game_over,self.score
+        return self.reward,game_over,self.score
 
     def _update_ui(self):
         self.display.fill(BLACK)
@@ -111,7 +123,7 @@ class SnakeGameAI:
         self.display.blit(text,[0,0])
         pygame.display.flip()
 
-    def _move(self,action):
+    def _move(self,action,turn_penalty):
         # Action
         # [1,0,0] -> Straight
         # [0,1,0] -> Right Turn 
@@ -124,9 +136,11 @@ class SnakeGameAI:
         elif np.array_equal(action,[0,1,0]):
             next_idx = (idx + 1) % 4
             new_dir = clock_wise[next_idx] # right Turn
+            self.reward -= turn_penalty
         else:
             next_idx = (idx - 1) % 4
             new_dir = clock_wise[next_idx] # Left Turn
+            self.reward -= turn_penalty
         self.direction = new_dir
 
         x = self.head.x

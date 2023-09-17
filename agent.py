@@ -9,7 +9,7 @@ import multiprocessing as mp
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
-LR = 0.001
+LR = 0.005
 
 class Agent:
     def __init__(self):
@@ -17,7 +17,7 @@ class Agent:
         self.epsilon = 0 # Randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(11,256,3) 
+        self.model = Linear_QNet(11,256,32,3) 
         self.trainer = QTrainer(self.model,lr=LR,gamma=self.gamma)
         # for n,p in self.model.named_parameters():
         #     print(p.device,'',n) 
@@ -97,7 +97,7 @@ class Agent:
 
     def get_action(self,state):
         # random moves: tradeoff explotation / exploitation
-        self.epsilon = 80 - self.n_game
+        self.epsilon = 50 - self.n_game
         final_move = [0,0,0]
         if(random.randint(0,200) < self.epsilon):
             move = random.randint(0,2)
@@ -125,6 +125,8 @@ def train():
 
         # perform move and get new state
         reward, done, score = game.play_step(final_move)
+        # Count number of moves before getting to an apple
+        game.numberEmptyMoves +=1
         state_new = agent.get_state(game)
 
         # train short memory
@@ -138,10 +140,11 @@ def train():
             game.reset()
             agent.n_game += 1
             agent.train_long_memory()
+            print('Game:',agent.n_game,'Score:',score,"Reward =", reward)
             if(score > reward): # new High score 
                 reward = score
                 agent.model.save()
-            print('Game:',agent.n_game,'Score:',score,'Record:',record)
+            #print('Game:',agent.n_game,'Score:',score)
             
             plot_scores.append(score)
             total_score+=score
