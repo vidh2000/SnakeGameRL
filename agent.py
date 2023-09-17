@@ -5,6 +5,8 @@ from collections import deque
 from snake_gameai import SnakeGameAI,Direction,Point,BLOCK_SIZE
 from model import Linear_QNet,QTrainer
 from Helper import plot
+import multiprocessing as mp
+
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
 LR = 0.001
@@ -147,6 +149,20 @@ def train():
             plot_mean_scores.append(mean_score)
             plot(plot_scores,plot_mean_scores)
 
+def trainInParallel(N):
+  
+    fns = []
+    for i in range(N):
+        fns.append(train)
+    proc = []
+    for fn in fns:
+        p = mp.Process(target=fn)
+        p.start()
+        proc.append(p)
+    for p in proc:
+        p.join()
 
 if(__name__=="__main__"):
+
     train()
+    #trainInParallel(2)
