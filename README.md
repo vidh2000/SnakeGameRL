@@ -12,5 +12,8 @@ And 3 possible actions:
   - turn left
   - turn right
 
-DNN implemented using Pytorch
+DNN implemented using Pytorch.
+
+About Deep Q-Learning:
+https://towardsdatascience.com/deep-q-learning-tutorial-mindqn-2a4c855abffc
   

@@ -9,14 +9,14 @@ import multiprocessing as mp
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
-LR = 0.005
+LR = 0.002
 
 FRESHSTART = True
 
 class Agent:
     def __init__(self):
         self.n_game = 0
-        self.epsilon = 0 # Randomness
+        self.epsilon = 0.3 # Randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
         self.model = Linear_QNet(11,256,128,3) 
@@ -98,14 +98,22 @@ class Agent:
         states,actions,rewards,next_states,dones = zip(*mini_sample)
         self.trainer.train_step(states,actions,rewards,next_states,dones)
 
-    def train_short_memory(self,state,action,reward,next_state,done):
-        self.trainer.train_step(state,action,reward,next_state,done)
+    def train_short_memory(self,state,action,reward,next_state,done,
+                                    short_mem_train_freq):
+        # # For single move training
+        # self.trainer.train_step(state,action,reward,next_state,done)
+        if (len(self.memory) > short_mem_train_freq):
+            mini_sample = random.sample(self.memory,short_mem_train_freq)
+        else:
+            mini_sample = self.memory
+        states,actions,rewards,next_states,dones = zip(*mini_sample)
+        self.trainer.train_step(states,actions,rewards,next_states,dones)
 
     def get_action(self,state):
         # random moves: tradeoff explotation / exploitation
         self.epsilon = 80 - self.n_game
         final_move = [0,0,0]
-        if(random.randint(0,200) < self.epsilon):
+        if(random.randint(0,150) < self.epsilon):
             move = random.randint(0,2)
             final_move[move]=1
         else:
@@ -120,10 +128,17 @@ def train():
     plot_mean_scores = []
     total_score = 0
     record = -100
+    short_memory_iter = 0
+    short_mem_train_freq = 10
     agent = Agent()
+    
 
     game = SnakeGameAI()
     while True:
+        
+        # Iterable for how often to train
+        short_memory_iter +=1
+
         # Get Old state
         state_old = agent.get_state(game)
 
@@ -138,8 +153,10 @@ def train():
         state_new = agent.get_state(game)
 
         # train short memory
-        agent.train_short_memory(state_old,final_move,reward,state_new,done)
-
+        if short_memory_iter > short_mem_train_freq:
+            agent.train_short_memory(state_old,final_move,reward,state_new,done,
+                                        short_mem_train_freq)
+            short_memory_iter = 0
         #remember
         agent.remember(state_old,final_move,reward,state_new,done)
 

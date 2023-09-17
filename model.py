@@ -19,7 +19,7 @@ class Linear_QNet(nn.Module):
         x = self.linear2(x)
         x = self.relu2(x)
         x = self.linear3(x)
-        return F.sigmoid(x)
+        return x
     
     def save(self, file_name='model.pth'):
         model_folder_path = r'C:\Users\Asus\Documents\Coding\Python\Machine Learning\SnakeGameRL' 
@@ -32,7 +32,7 @@ class QTrainer:
         self.gamma = gamma
         self.model = model
         self.optimiser = optim.Adam(model.parameters(),lr = self.lr)    
-        self.criterion = nn.MSELoss()
+        self.criterion = nn.HuberLoss() #nn.MSELoss()
         # for i in self.model.parameters():
         #     print(i.is_cuda)
 
@@ -42,8 +42,9 @@ class QTrainer:
         next_state = torch.tensor(next_state,dtype=torch.float).cuda()
         action = torch.tensor(action,dtype=torch.long).cuda()
         reward = torch.tensor(reward,dtype=torch.float).cuda()
-        print(reward)
-        # only one parameter to train , Hence convert to tuple of shape (1, x)
+
+        # only one parameter to train in short-memory
+        # Hence convert to tuple of shape (1, x)
         if(len(state.shape) == 1):
             state = torch.unsqueeze(state,0).cuda()
             next_state = torch.unsqueeze(next_state,0).cuda()
@@ -51,18 +52,16 @@ class QTrainer:
             reward = torch.unsqueeze(reward,0).cuda()
             done = (done, )
 
-        # Update Q-value
+        # Q_new = Q_old + gamma * max(next_predicted Qvalue)
         pred = self.model(state).cuda()
         target = pred.clone().cuda()
         for idx in range(len(done)):
             Q_new = reward[idx]
             if not done[idx]:
-                Q_new = reward[idx] + self.gamma * \
-                        (torch.max(self.model(next_state[idx])).cuda()-Q_new)
+                Q_new =  reward[idx] + self.gamma * \
+                        torch.max(self.model(next_state[idx])).cuda()
             target[idx][torch.argmax(action).item()] = Q_new 
-        # 2. Q_new = reward + gamma * max(next_predicted Qvalue) -> only do this if not done
-        # pred.clone()
-        # preds[argmax(action)] = Q_new
+
         self.optimiser.zero_grad()
         loss = self.criterion(target,pred)
         loss.backward()
