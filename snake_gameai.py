@@ -66,7 +66,7 @@ class SnakeGameAI:
     def play_step(self,action):
 
         self.frame_iteration+=1
-        self.reward +=0
+        #self.reward +=1
 
         # 1. Collect the user input
         for event in pygame.event.get():
@@ -75,7 +75,7 @@ class SnakeGameAI:
                 quit()
             
         # 2. Move
-        turn_penalty = 0.1 # penalty for turning too much
+        turn_penalty = 0 # penalty for turning too much
         self._move(action,turn_penalty)
         self.snake.insert(0,self.head)
 
@@ -98,7 +98,7 @@ class SnakeGameAI:
         # 4. Place new Food or just move
         if(self.head == self.food):
             self.score +=1
-            self.reward +=100
+            self.reward +=10
             self.numberEmptyMoves = 0
             self._place__food()
         else:

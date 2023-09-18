@@ -9,14 +9,14 @@ class Linear_QNet(nn.Module):
         super().__init__()
         self.linear1 = nn.Linear(input_size,hidden_size1).cuda()
         #self.relu1 = nn.ReLU().cuda()
-        self.linear2 = nn.Linear(hidden_size1,hidden_size2).cuda()
+        #self.linear2 = nn.Linear(hidden_size1,hidden_size2).cuda()
         #self.relu2 = nn.ReLU().cuda()
         self.linear3 = nn.Linear(hidden_size2,output_size).cuda()
     
     def forward(self, x):
         x = F.relu(self.linear1(x))
         #x = self.relu1(x)
-        x = self.linear2(x)
+        #x = self.linear2(x)
         #x = self.relu2(x)
         x = self.linear3(x)
         return F.sigmoid(x)
