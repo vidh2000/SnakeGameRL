@@ -10,21 +10,25 @@ import multiprocessing as mp
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
 LR = 0.001
+TRAIN_FREQ = 20
 
 FRESHSTART = True
 
 class Agent:
     def __init__(self):
         self.n_game = 0
-        self.epsilon = 0.9 # Proportion of random moves initially 
+        self.epsilon = 0.6 # Proportion of random moves initially
+        self.N_eps_steps = 1000
         self.gamma = 0.9 # discount rate
+        self.alpha =0.1
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
         self.model = Linear_QNet(11,264,33,3) 
         if not FRESHSTART:
             modelpath = r'C:\Users\Asus\Documents\Coding\Python\Machine Learning\SnakeGameRL\model.pth'
             self.model.load_state_dict(torch.load(modelpath))
 
-        self.trainer = QTrainer(self.model,lr=LR,gamma=self.gamma)
+        self.trainer = QTrainer(self.model,lr=LR,gamma=self.gamma,
+                                alpha=self.alpha)
         # for n,p in self.model.named_parameters():
         #     print(p.device,'',n) 
         # self.model.to('cuda')   
@@ -117,18 +121,19 @@ class Agent:
         final_move = [0,0,0]
 
         step = self.epsilon
-        N_steps = 100
-        if (self.n_game<100 and self.epsilon*N_steps>0):
-            if(random.randint(0,100) < self.epsilon*N_steps):
+        if (self.n_game<self.N_eps_steps and self.epsilon*self.N_eps_steps>0):
+            if(random.randint(0, int(self.N_eps_steps)) < self.epsilon*self.N_eps_steps):
                 move = random.randint(0,2)
+                print("Random move:", move)
                 final_move[move]=1
-                N_steps -= step
+                self.N_eps_steps -= step
             else:
                 state0 = torch.tensor(state,dtype=torch.float).cuda()
                 prediction = self.model(state0).cuda() # prediction by model 
                 move = torch.argmax(prediction).item()
                 final_move[move]=1 
         else:
+            print("no random actions anymore")
             state0 = torch.tensor(state,dtype=torch.float).cuda()
             prediction = self.model(state0).cuda() # prediction by model 
             move = torch.argmax(prediction).item()
@@ -139,18 +144,16 @@ def train():
     plot_scores = []
     plot_mean_scores = []
     losses = []
+    loss = 0
+    short_memory_iter = 0
     total_score = 0
     record = 0
-    short_memory_iter = 0
-    short_mem_train_freq = 50
+    
     agent = Agent()
     
 
     game = SnakeGameAI()
     while True:
-        
-        # Iterable for how often to train
-        short_memory_iter +=1
 
         # Get Old state
         state_old = agent.get_state(game)
@@ -165,21 +168,22 @@ def train():
         game.numberEmptyMoves +=1
         state_new = agent.get_state(game)
 
-        # # train short memory
-        # if short_memory_iter > short_mem_train_freq:
-        #     agent.train_short_memory(state_old,final_move,reward,state_new,done,
-        #                                 short_mem_train_freq)
-        #     short_memory_iter = 0
-        #remember
+        
         agent.remember(state_old,final_move,reward,state_new,done)
 
         if done:
+            # Iterable for how often to train
+            short_memory_iter +=1
+            
             # Train long memory,plot result
             game.reset()
             agent.n_game += 1
-            loss = agent.train_long_memory()
+            if short_memory_iter > TRAIN_FREQ:
+                short_memory_iter = 0
+                loss = agent.train_long_memory()
+
             print('Game:',agent.n_game,'Score:',score, 
-                    "Record Score:", record, 
+                    "Record:", record, 
                     "Reward =", round(reward,3))
             if(score > record): # new High score 
                 record = score

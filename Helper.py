@@ -23,4 +23,4 @@ def plot(scores, mean_scores, losses):
     ax2.set_ylim(ymin=0)
     ax2.text(len(losses)-1,losses[-1],str(losses[-1]))
     plt.show(block=False)
-    #plt.pause(.01)
+    plt.pause(.001)

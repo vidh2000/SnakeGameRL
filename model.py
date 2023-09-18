@@ -19,7 +19,7 @@ class Linear_QNet(nn.Module):
         x = self.linear2(x)
         #x = self.relu2(x)
         x = self.linear3(x)
-        return x
+        return F.sigmoid(x)
     
     def save(self, file_name='model.pth'):
         model_folder_path = r'C:\Users\Asus\Documents\Coding\Python\Machine Learning\SnakeGameRL' 
@@ -27,9 +27,10 @@ class Linear_QNet(nn.Module):
         torch.save(self.state_dict(),file_name)
 
 class QTrainer:
-    def __init__(self,model,lr,gamma):
+    def __init__(self,model,lr,gamma,alpha):
         self.lr = lr
         self.gamma = gamma
+        self.alpha = alpha
         self.model = model
         self.optimiser = optim.Adam(model.parameters(),lr = self.lr)    
         self.criterion = nn.HuberLoss() #nn.MSELoss()
@@ -66,9 +67,9 @@ class QTrainer:
         for t in range(len(done)):
             for a in range(3):
                 Q_old = pred[t][a]
-                Q_new = (1-self.lr)*Q_old+self.lr * reward[t]
+                Q_new = (1-self.alpha)*Q_old+ self.alpha * reward[t]
                 if not done[t]:
-                    Q_new =  Q_new + self.gamma * self.lr * \
+                    Q_new =  Q_new + self.gamma * self.alpha * \
                             torch.max(self.model(next_state[t])).cuda()
                 target[t][a] = Q_new 
 
