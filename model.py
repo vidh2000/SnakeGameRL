@@ -53,23 +53,24 @@ class QTrainer:
             done = (done, )
         
         ##############################################################
-        # Q_new updated according to Bellman equation
-        # Q == output weight of the last nodes in DNN
+        # Q-values updated according to Bellman equation
+        # Q == output weight of the last nodes in DNN (# output nodes = 3)
         ##############################################################
-        
+
         # Create a copy of the DNN to update Q-values
         pred = self.model(state).cuda()
         target = pred.clone().cuda()
 
-        # Iterate through all states+decisions in the past and 
+        # Iterate through all states (time) + decisions in the past and 
         # update weights according to Bellman equation
-        for idx in range(len(done)):
-            Q_old = pred[idx]
-            Q_new = self.lr*reward[idx]
-            if not done[idx]:
-                Q_new =  reward[idx] + self.gamma * \
-                        torch.max(self.model(next_state[idx])).cuda()
-            target[idx][torch.argmax(action).item()] = Q_new 
+        for t in range(len(done)):
+            for a in range(3):
+                Q_old = pred[t][a]
+                Q_new = (1-self.lr)*Q_old+self.lr * reward[t]
+                if not done[t]:
+                    Q_new =  Q_new + self.gamma * self.lr * \
+                            torch.max(self.model(next_state[t])).cuda()
+                target[t][torch.argmax(action).item()] = Q_new 
 
         self.optimiser.zero_grad()
         loss = self.criterion(target,pred)
