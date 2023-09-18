@@ -120,7 +120,7 @@ class Agent:
         # for the first 100 games
         final_move = [0,0,0]
 
-        step = self.epsilon
+        step = self.epsilon #problem here down below - no correct implementatino of expl/exploit
         if (self.n_game<self.N_eps_steps and self.epsilon*self.N_eps_steps>0):
             if(random.randint(0, int(self.N_eps_steps)) < self.epsilon*self.N_eps_steps):
                 move = random.randint(0,2)
