@@ -70,7 +70,7 @@ class QTrainer:
                 if not done[t]:
                     Q_new =  Q_new + self.gamma * self.lr * \
                             torch.max(self.model(next_state[t])).cuda()
-                target[t][torch.argmax(action).item()] = Q_new 
+                target[t][a] = Q_new 
 
         self.optimiser.zero_grad()
         loss = self.criterion(target,pred)
