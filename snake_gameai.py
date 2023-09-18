@@ -23,7 +23,7 @@ class Direction(Enum):
 Point = namedtuple('Point','x , y')
 
 BLOCK_SIZE=20
-SPEED = 100
+SPEED = 400
 WHITE = (255,255,255)
 RED = (200,0,0)
 BLUE1 = (0,0,255)
@@ -31,7 +31,7 @@ BLUE2 = (0,100,255)
 BLACK = (0,0,0)
 
 class SnakeGameAI:
-    def __init__(self,w=640,h=480):
+    def __init__(self,w=480,h=360):
         self.w=w
         self.h=h
         #init display
@@ -66,6 +66,7 @@ class SnakeGameAI:
     def play_step(self,action):
 
         self.frame_iteration+=1
+        self.reward +=0.001
 
         # 1. Collect the user input
         for event in pygame.event.get():
@@ -74,21 +75,21 @@ class SnakeGameAI:
                 quit()
             
         # 2. Move
-        turn_penalty = 0.2 # penalty for turning too much
+        turn_penalty = 0.001 # penalty for turning too much
         self._move(action,turn_penalty)
         self.snake.insert(0,self.head)
 
         # 3. Check if game Over
                 # - due to taking too long to find an apple
                 # - due to collision
-                # - due to 
+                # - due to ...
         game_over = False 
-        if self.numberEmptyMoves>100:
+        if self.numberEmptyMoves>self.w*self.h*10:
             game_over=True
             self.reward -= 10
             return self.reward,game_over,self.score
         
-        elif(self.is_collision() or self.frame_iteration > 100*len(self.snake) ):
+        if (self.is_collision() or self.frame_iteration > 100*len(self.snake)):
             game_over=True
             self.reward -= 10
             return self.reward,game_over,self.score
@@ -97,7 +98,7 @@ class SnakeGameAI:
         # 4. Place new Food or just move
         if(self.head == self.food):
             self.score +=1
-            self.reward +=1
+            self.reward +=10
             self.numberEmptyMoves = 0
             self._place__food()
         else:

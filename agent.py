@@ -9,17 +9,17 @@ import multiprocessing as mp
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
-LR = 0.002
+LR = 0.001
 
 FRESHSTART = True
 
 class Agent:
     def __init__(self):
         self.n_game = 0
-        self.epsilon = 0.3 # Randomness
+        self.epsilon = 0.9 # Proportion of random moves initially 
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(11,256,128,3) 
+        self.model = Linear_QNet(11,264,33,3) 
         if not FRESHSTART:
             modelpath = r'C:\Users\Asus\Documents\Coding\Python\Machine Learning\SnakeGameRL\model.pth'
             self.model.load_state_dict(torch.load(modelpath))
@@ -96,26 +96,38 @@ class Agent:
         else:
             mini_sample = self.memory
         states,actions,rewards,next_states,dones = zip(*mini_sample)
-        self.trainer.train_step(states,actions,rewards,next_states,dones)
-
-    def train_short_memory(self,state,action,reward,next_state,done,
-                                    short_mem_train_freq):
-        # # For single move training
-        # self.trainer.train_step(state,action,reward,next_state,done)
-        if (len(self.memory) > short_mem_train_freq):
-            mini_sample = random.sample(self.memory,short_mem_train_freq)
-        else:
-            mini_sample = self.memory
-        states,actions,rewards,next_states,dones = zip(*mini_sample)
-        self.trainer.train_step(states,actions,rewards,next_states,dones)
+        loss = self.trainer.train_step(
+                            states,actions,rewards,next_states,dones)
+        return loss
+    
+    # def train_short_memory(self,state,action,reward,next_state,done,
+    #                                 short_mem_train_freq):
+    #     # # For single move training
+    #     # self.trainer.train_step(state,action,reward,next_state,done)
+    #     if (len(self.memory) > short_mem_train_freq):
+    #         mini_sample = random.sample(self.memory,short_mem_train_freq)
+    #     else:
+    #         mini_sample = self.memory
+    #     states,actions,rewards,next_states,dones = zip(*mini_sample)
+    #     self.trainer.train_step(states,actions,rewards,next_states,dones)
 
     def get_action(self,state):
         # random moves: tradeoff explotation / exploitation
-        self.epsilon = 80 - self.n_game
+        # for the first 100 games
         final_move = [0,0,0]
-        if(random.randint(0,150) < self.epsilon):
-            move = random.randint(0,2)
-            final_move[move]=1
+
+        step = self.epsilon
+        N_steps = 100
+        if (self.n_game<100 and self.epsilon*N_steps>0):
+            if(random.randint(0,100) < self.epsilon*N_steps):
+                move = random.randint(0,2)
+                final_move[move]=1
+                N_steps -= step
+            else:
+                state0 = torch.tensor(state,dtype=torch.float).cuda()
+                prediction = self.model(state0).cuda() # prediction by model 
+                move = torch.argmax(prediction).item()
+                final_move[move]=1 
         else:
             state0 = torch.tensor(state,dtype=torch.float).cuda()
             prediction = self.model(state0).cuda() # prediction by model 
@@ -126,10 +138,11 @@ class Agent:
 def train():
     plot_scores = []
     plot_mean_scores = []
+    losses = []
     total_score = 0
-    record = -100
+    record = 0
     short_memory_iter = 0
-    short_mem_train_freq = 10
+    short_mem_train_freq = 50
     agent = Agent()
     
 
@@ -152,11 +165,11 @@ def train():
         game.numberEmptyMoves +=1
         state_new = agent.get_state(game)
 
-        # train short memory
-        if short_memory_iter > short_mem_train_freq:
-            agent.train_short_memory(state_old,final_move,reward,state_new,done,
-                                        short_mem_train_freq)
-            short_memory_iter = 0
+        # # train short memory
+        # if short_memory_iter > short_mem_train_freq:
+        #     agent.train_short_memory(state_old,final_move,reward,state_new,done,
+        #                                 short_mem_train_freq)
+        #     short_memory_iter = 0
         #remember
         agent.remember(state_old,final_move,reward,state_new,done)
 
@@ -164,19 +177,23 @@ def train():
             # Train long memory,plot result
             game.reset()
             agent.n_game += 1
-            agent.train_long_memory()
-            print('Game:',agent.n_game,'Score:',score,"Reward =", reward)
-            if(reward > record): # new High score 
-                record = reward
+            loss = agent.train_long_memory()
+            print('Game:',agent.n_game,'Score:',score, 
+                    "Record Score:", record, 
+                    "Reward =", round(reward,3))
+            if(score > record): # new High score 
+                record = score
                 agent.model.save()
             #print('Game:',agent.n_game,'Score:',score)
             
             plot_scores.append(score)
+            losses.append(loss)
             total_score += score
             mean_score = total_score / agent.n_game
             plot_mean_scores.append(mean_score)
-            plot(plot_scores,plot_mean_scores)
+            plot(plot_scores,plot_mean_scores, losses)
 
+# Work in progress for faster training..
 def trainInParallel(N):
   
     fns = []

@@ -8,16 +8,16 @@ class Linear_QNet(nn.Module):
     def __init__(self,input_size,hidden_size1,hidden_size2,output_size):
         super().__init__()
         self.linear1 = nn.Linear(input_size,hidden_size1).cuda()
-        self.relu1 = nn.ReLU().cuda()
+        #self.relu1 = nn.ReLU().cuda()
         self.linear2 = nn.Linear(hidden_size1,hidden_size2).cuda()
-        self.relu2 = nn.ReLU().cuda()
+        #self.relu2 = nn.ReLU().cuda()
         self.linear3 = nn.Linear(hidden_size2,output_size).cuda()
     
     def forward(self, x):
         x = F.relu(self.linear1(x))
-        x = self.relu1(x)
+        #x = self.relu1(x)
         x = self.linear2(x)
-        x = self.relu2(x)
+        #x = self.relu2(x)
         x = self.linear3(x)
         return x
     
@@ -51,12 +51,21 @@ class QTrainer:
             action = torch.unsqueeze(action,0).cuda()
             reward = torch.unsqueeze(reward,0).cuda()
             done = (done, )
-
-        # Q_new = Q_old + gamma * max(next_predicted Qvalue)
+        
+        ##############################################################
+        # Q_new updated according to Bellman equation
+        # Q == output weight of the last nodes in DNN
+        ##############################################################
+        
+        # Create a copy of the DNN to update Q-values
         pred = self.model(state).cuda()
         target = pred.clone().cuda()
+
+        # Iterate through all states+decisions in the past and 
+        # update weights according to Bellman equation
         for idx in range(len(done)):
-            Q_new = reward[idx]
+            Q_old = pred[idx]
+            Q_new = self.lr*reward[idx]
             if not done[idx]:
                 Q_new =  reward[idx] + self.gamma * \
                         torch.max(self.model(next_state[idx])).cuda()
@@ -64,7 +73,9 @@ class QTrainer:
 
         self.optimiser.zero_grad()
         loss = self.criterion(target,pred)
+        loss_float = loss.item()
         loss.backward()
 
         self.optimiser.step()
+        return loss_float
   
