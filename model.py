@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import os
+from copy import deepcopy
 
 class Linear_QNet(nn.Module):
     def __init__(self,input_size,hidden_size1,hidden_size2,output_size):
@@ -19,7 +20,7 @@ class Linear_QNet(nn.Module):
         x = self.linear2(x)
         #x = self.relu2(x)
         x = self.linear3(x)
-        return F.sigmoid(x)
+        return x
     
     def save(self, file_name='model.pth'):
         model_folder_path = r'C:\Users\Asus\Documents\Coding\Python\Machine Learning\SnakeGameRL' 
@@ -34,11 +35,12 @@ class QTrainer:
         self.model = model
         self.optimiser = optim.Adam(model.parameters(),lr = self.lr)    
         self.criterion = nn.MSELoss() #nn.HuberLoss()
-        # for i in self.model.parameters():
-        #     print(i.is_cuda)
-
-    
-    def train_step(self,state,action,reward,next_state,done):
+        
+    def update_targetNN(self):
+        # Create a copy of the DNN with the same weights
+        self.targetNN = deepcopy(self.model)
+        
+    def train_model(self,state,action,reward,next_state,done):
         state = torch.tensor(state,dtype=torch.float).cuda()
         next_state = torch.tensor(next_state,dtype=torch.float).cuda()
         action = torch.tensor(action,dtype=torch.long).cuda()
@@ -53,28 +55,30 @@ class QTrainer:
             reward = torch.unsqueeze(reward,0).cuda()
             done = (done, )
         
-        ##############################################################
-        # Q-values updated according to Bellman equation
-        # Q == output weight of the last nodes in DNN (# output nodes = 3)
-        ##############################################################
-
-        # Create a copy of the DNN to update Q-values
+        # Get comparison tensor of Q for training
         pred = self.model(state).cuda()
-        target = pred.clone().cuda()
+        y = pred.clone().cuda()
 
-        # Iterate through all states (time) + decisions in the past and 
-        # update weights according to Bellman equation
+        #######################################################################
+        # Q-values from model network updated according to Bellman equation
+        # and compared with old Q values to perform gradient descent to update
+        # model network parameters
+        # Q == output weight of the last nodes in DNN
+        #######################################################################
+
+        # Iterate through all states + decisions in the past and 
+        # update y according to Q' obtained from the target network
         for t in range(len(done)):
             for a in range(3):
-                Q_old = pred[t][a]
-                Q_new = (1-self.alpha)*Q_old+ self.alpha * reward[t]
+                Q_new = reward[t]
                 if not done[t]:
-                    Q_new =  Q_new + self.gamma * self.alpha * \
-                            torch.max(self.model(next_state[t])).cuda()
-                target[t][a] = Q_new 
+                    Q_new = Q_new + \
+                        self.gamma * torch.max(self.targetNN(next_state[t])).cuda()
+                y[t][a] = Q_new 
 
+        # Train the model
         self.optimiser.zero_grad()
-        loss = self.criterion(target,pred)
+        loss = self.criterion(y,pred)
         loss_float = loss.item()
         loss.backward()
 

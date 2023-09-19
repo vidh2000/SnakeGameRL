@@ -105,7 +105,7 @@ class SnakeGameAI:
         
         if (self.is_collision() ):
             game_over=True
-            self.reward -= 10
+            self.reward -= 1000
             return self.reward,game_over,self.score
         
 

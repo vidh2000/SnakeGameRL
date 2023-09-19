@@ -18,7 +18,7 @@ def plot(scores, mean_scores, losses):
 
     ax2 = plt.subplot(212,sharex = ax1)
     ax2.set_xlabel('Number of Games')
-    ax2.set_ylabel('Huber Loss')
+    ax2.set_ylabel('Target-Model Loss')
     ax2.plot(losses)
     ax2.set_ylim(ymin=0)
     ax2.text(len(losses)-1,losses[-1],str(losses[-1]))

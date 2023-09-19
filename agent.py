@@ -8,9 +8,11 @@ from Helper import plot
 import multiprocessing as mp
 
 MAX_MEMORY = 100_000
-BATCH_SIZE = 1000
 LR = 0.001
-TRAIN_FREQ = 10
+
+BATCH_SIZE = 1000 #how many steps we train on
+TRAIN_FREQ = 1000 #how many steps we update params of our network
+TARGET_UPDATE_FREQ = 10 #number of games to update the target network
 
 FRESHSTART = True
 
@@ -35,7 +37,7 @@ class Agent:
         # for n,p in self.model.named_parameters():
         #     print(p.device,'',n)     
 
-    #   --------------------- state (11 Values) ------------------------
+    #   --------------------- state (12 Values) ------------------------
     # [
     #   danger straight, danger right, danger left, 
     #   
@@ -44,6 +46,8 @@ class Agent:
     # 
     #   food left,food right,
     #   food up, food down
+    # 
+    #   distance between the head and the apple
     # ]
 
     def get_state(self,game):
@@ -99,27 +103,32 @@ class Agent:
     def remember(self,state,action,reward,next_state,done):
         self.memory.append((state,action,reward,next_state,done)) # popleft if memory exceed
 
-    def train_long_memory(self):
+    def update_target_network(self):
+        """
+        Train the model network and
+        update the target network with current model weights
+        """
+
         if (len(self.memory) > BATCH_SIZE):
-            print("taking minisample")
             mini_sample = random.sample(self.memory,BATCH_SIZE)
         else:
             mini_sample = self.memory
         states,actions,rewards,next_states,dones = zip(*mini_sample)
-        loss = self.trainer.train_step(
+        loss = self.trainer.train_model(
                             states,actions,rewards,next_states,dones)
+        self.trainer.update_targetNN()
         return loss
     
-    # def train_short_memory(self,state,action,reward,next_state,done,
-    #                                 short_mem_train_freq):
-    #     # # For single move training
-    #     # self.trainer.train_step(state,action,reward,next_state,done)
-    #     if (len(self.memory) > short_mem_train_freq):
-    #         mini_sample = random.sample(self.memory,short_mem_train_freq)
-    #     else:
-    #         mini_sample = self.memory
-    #     states,actions,rewards,next_states,dones = zip(*mini_sample)
-    #     self.trainer.train_step(states,actions,rewards,next_states,dones)
+    def train_network(self):
+        """
+        Train the model network based on memory (s,a)
+        """
+        if (len(self.memory) > TRAIN_FREQ):
+            mini_sample = random.sample(self.memory,TRAIN_FREQ)
+        else:
+            mini_sample = self.memory
+        states,actions,rewards,next_states,dones = zip(*mini_sample)
+        self.trainer.train_model(states,actions,rewards,next_states,dones)
 
     def get_action(self,state):
         # random moves: tradeoff explotation / exploitation
@@ -144,18 +153,23 @@ class Agent:
         return final_move
 
 def train():
+    total_score = 0
     plot_scores = []
     plot_mean_scores = []
+    record = 0
     losses = []
     loss = 0
-    short_memory_iter = 0
-    total_score = 0
-    record = 0
+    target_update_iter = 0
+    train_model_iter = 0
     
+    
+    # Initialise required classes
     agent = Agent()
-    
-
     game = SnakeGameAI()
+
+    # Get target network with initial weights to be updated later
+    agent.trainer.update_targetNN()
+
     while True:
 
         # Get Old state
@@ -174,16 +188,23 @@ def train():
         
         agent.remember(state_old,final_move,reward,state_new,done)
 
+        if train_model_iter> TRAIN_FREQ:
+
+            agent.train_network()
+            train_model_iter = 0
+
         if done:
-            # Iterable for how often to train and for explor/exploit
-            short_memory_iter +=1
+            # Iterables for how often to update target network
+            # and for updating the explore/exploitation ratio of moves
+            target_update_iter +=1
             agent.N_eps_steps -= agent.epsilon
-            # Train long memory,plot result
+
+            # Update target network
             game.reset()
             agent.n_game += 1
-            if short_memory_iter > TRAIN_FREQ:
-                short_memory_iter = 0
-                loss = agent.train_long_memory()
+            if target_update_iter > TARGET_UPDATE_FREQ:
+                loss = agent.update_target_network() # could change to be updated after N number of steps, not games
+                target_update_iter = 0
 
             print('Game:',agent.n_game,'Score:',score, 
                     "Record:", record, 
@@ -200,21 +221,8 @@ def train():
             plot_mean_scores.append(mean_score)
             plot(plot_scores,plot_mean_scores, losses)
 
-# Work in progress for faster training..
-def trainInParallel(N):
-  
-    fns = []
-    for i in range(N):
-        fns.append(train)
-    proc = []
-    for fn in fns:
-        p = mp.Process(target=fn)
-        p.start()
-        proc.append(p)
-    for p in proc:
-        p.join()
+        train_model_iter +=1
 
 if(__name__=="__main__"):
 
     train()
-    #trainInParallel(2)
