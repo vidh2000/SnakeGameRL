@@ -31,7 +31,7 @@ BLUE2 = (0,100,255)
 BLACK = (0,0,0)
 
 class SnakeGameAI:
-    def __init__(self,w=BLOCK_SIZE*20,h=BLOCK_SIZE*20):
+    def __init__(self,w=BLOCK_SIZE*30,h=BLOCK_SIZE*20):
         self.w=w
         self.h=h
         #init display
@@ -65,7 +65,7 @@ class SnakeGameAI:
     def play_step(self,action):
 
         # Reward for living
-        self.reward +=0.1
+        self.reward +=0.0
         
         # Calculate distance to food
         distance_to_food_old = (self.food.x-self.head.x)**2 + \
@@ -79,7 +79,7 @@ class SnakeGameAI:
                 quit()
             
         # 2. Move
-        turn_penalty = 0.1 # penalty for turning too much
+        turn_penalty = 0.0 # penalty for turning too much
         self._move(action,turn_penalty)
         self.snake.insert(0,self.head)
 
@@ -87,10 +87,10 @@ class SnakeGameAI:
         distance_to_food_new = (self.food.x-self.head.x)**2 + \
                             (self.food.y-self.head.y)**2
         
-        if distance_to_food_new<distance_to_food_old:
-            self.reward +=1
-        else:
-            self.reward -=1
+        # if distance_to_food_new<distance_to_food_old:
+        #     self.reward +=0.1
+        # else:
+        #     self.reward -=0.1
 
 
         # 3. Check if game Over
@@ -98,21 +98,21 @@ class SnakeGameAI:
                 # - due to collision
                 # - due to ...
         game_over = False 
-        if self.numberEmptyMoves>self.w*self.h*10:
+        if self.numberEmptyMoves>100*len(self.snake):#self.w*self.h/4:
             game_over=True
             self.reward -= 10
             return self.reward,game_over,self.score
         
         if (self.is_collision() ):
             game_over=True
-            self.reward -= 1000
+            self.reward -= 10
             return self.reward,game_over,self.score
         
 
         # 4. Place new Food or just move
         if(self.head == self.food):
             self.score +=1
-            self.reward +=100
+            self.reward +=10
             self.numberEmptyMoves = 0
             self._place__food()
         else:

@@ -10,27 +10,27 @@ import multiprocessing as mp
 MAX_MEMORY = 100_000
 LR = 0.001
 
-BATCH_SIZE = 1000 #how many steps we train on
-TRAIN_FREQ = 1000 #how many steps we update params of our network
-TARGET_UPDATE_FREQ = 10 #number of games to update the target network
+# How many steps we train on
+BATCH_SIZE = 1000
+
+#How many steps to update the target network and batch-train the model
+TARGET_UPDATE_FREQ = 100
 
 FRESHSTART = True
 
 class Agent:
     def __init__(self):
         self.n_game = 0
-        self.epsilon = 0.8 # Proportion of random moves initially
+        self.epsilon = 0 # Proportion of random moves initially
         self.N_eps_steps = 100
         self.gamma = 0.9 # discount rate
-        self.alpha =0.1
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(12,256,36,3) 
+        self.model = Linear_QNet(11,256,256,3) 
         if not FRESHSTART:
             modelpath = r'C:\Users\Asus\Documents\Coding\Python\Machine Learning\SnakeGameRL\model.pth'
             self.model.load_state_dict(torch.load(modelpath))
 
-        self.trainer = QTrainer(self.model,lr=LR,gamma=self.gamma,
-                                alpha=self.alpha)
+        self.trainer = QTrainer(self.model,lr=LR,gamma=self.gamma)
         # for n,p in self.model.named_parameters():
         #     print(p.device,'',n) 
         # self.model.to('cuda')   
@@ -47,7 +47,7 @@ class Agent:
     #   food left,food right,
     #   food up, food down
     # 
-    #   distance between the head and the apple
+    #   #distance between the head and the apple
     # ]
 
     def get_state(self,game):
@@ -96,60 +96,79 @@ class Agent:
             game.food.y > game.head.y,  # food is down
 
             # Distance to food
-            distance_to_food
+            #distance_to_food
         ]
         return np.array(state,dtype=int)
 
     def remember(self,state,action,reward,next_state,done):
         self.memory.append((state,action,reward,next_state,done)) # popleft if memory exceed
 
-    def update_target_network(self):
+    def train_network_on_step(self, state, action, reward, next_state, done):
+        self.trainer.train_model(
+                            state,action,reward,next_state,done)
+        
+    def update_target_network_and_train(self):
         """
         Train the model network and
         update the target network with current model weights
         """
-
         if (len(self.memory) > BATCH_SIZE):
             mini_sample = random.sample(self.memory,BATCH_SIZE)
         else:
             mini_sample = self.memory
+
         states,actions,rewards,next_states,dones = zip(*mini_sample)
         loss = self.trainer.train_model(
                             states,actions,rewards,next_states,dones)
-        self.trainer.update_targetNN()
+        #self.trainer.update_targetNN()
         return loss
     
     def train_network(self):
         """
         Train the model network based on memory (s,a)
         """
-        if (len(self.memory) > TRAIN_FREQ):
-            mini_sample = random.sample(self.memory,TRAIN_FREQ)
+        if (len(self.memory) > BATCH_SIZE):
+            mini_sample = random.sample(self.memory,BATCH_SIZE)
         else:
             mini_sample = self.memory
         states,actions,rewards,next_states,dones = zip(*mini_sample)
         self.trainer.train_model(states,actions,rewards,next_states,dones)
 
-    def get_action(self,state):
-        # random moves: tradeoff explotation / exploitation
-        # for the first 100 games
+    # def get_action(self,state):
+    #     # random moves: tradeoff explotation / exploitation
+    #     # for the first 100 games
+    #     final_move = [0,0,0]
+
+    #     if (self.n_game<self.N_eps_steps and self.epsilon*self.N_eps_steps>0):
+    #         if(random.randint(0, int(self.N_eps_steps)) < self.epsilon*self.N_eps_steps):
+    #             move = random.randint(0,2)
+    #             final_move[move]=1
+
+    #         else:
+    #             state0 = torch.tensor(state,dtype=torch.float).cuda()
+    #             prediction = self.model(state0).cuda() # prediction by model 
+    #             move = torch.argmax(prediction).item()
+    #             final_move[move]=1 
+    #     else:
+    #         state0 = torch.tensor(state,dtype=torch.float).cuda()
+    #         prediction = self.model(state0).cuda() # prediction by model 
+    #         move = torch.argmax(prediction).item()
+    #         final_move[move]=1 
+    #     return final_move
+    
+    def get_action(self, state):
+        # random moves: tradeoff exploration / exploitation
+        self.epsilon = 80 - self.n_game
         final_move = [0,0,0]
-
-        if (self.n_game<self.N_eps_steps and self.epsilon*self.N_eps_steps>0):
-            if(random.randint(0, int(self.N_eps_steps)) < self.epsilon*self.N_eps_steps):
-                move = random.randint(0,2)
-                final_move[move]=1
-
-            else:
-                state0 = torch.tensor(state,dtype=torch.float).cuda()
-                prediction = self.model(state0).cuda() # prediction by model 
-                move = torch.argmax(prediction).item()
-                final_move[move]=1 
+        if random.randint(0, 200) < self.epsilon:
+            move = random.randint(0, 2)
+            final_move[move] = 1
         else:
-            state0 = torch.tensor(state,dtype=torch.float).cuda()
-            prediction = self.model(state0).cuda() # prediction by model 
+            state0 = torch.tensor(state, dtype=torch.float).cuda()
+            prediction = self.model(state0).cuda()
             move = torch.argmax(prediction).item()
-            final_move[move]=1 
+            final_move[move] = 1
+
         return final_move
 
 def train():
@@ -185,34 +204,37 @@ def train():
         game.numberEmptyMoves +=1
         state_new = agent.get_state(game)
 
-        
+        # Train on the step taken
+        agent.train_network_on_step(state_old, final_move,
+                                    reward, state_new, done)
+
+        # Store information about states and actions into memory        
         agent.remember(state_old,final_move,reward,state_new,done)
 
-        if train_model_iter> TRAIN_FREQ:
-
-            agent.train_network()
-            train_model_iter = 0
+        # Every N steps train on the larger batch and update target network
+        if target_update_iter > TARGET_UPDATE_FREQ:
+            #agent.update_target_network_and_train() 
+            target_update_iter = 0
 
         if done:
-            # Iterables for how often to update target network
-            # and for updating the explore/exploitation ratio of moves
-            target_update_iter +=1
-            agent.N_eps_steps -= agent.epsilon
+            # Iterable for updating the explore/exploitation ratio of moves
+            #agent.N_eps_steps -= agent.epsilon
 
             # Update target network
             game.reset()
             agent.n_game += 1
-            if target_update_iter > TARGET_UPDATE_FREQ:
-                loss = agent.update_target_network() # could change to be updated after N number of steps, not games
-                target_update_iter = 0
-
+            
+            # Find loss for plotting
+            loss = agent.update_target_network_and_train() 
+            
             print('Game:',agent.n_game,'Score:',score, 
                     "Record:", record, 
                     "Reward =", round(reward,3))
-            if(score > record): # new High score 
+            
+            # Save the best model
+            if(score > record): 
                 record = score
                 agent.model.save()
-            #print('Game:',agent.n_game,'Score:',score)
             
             plot_scores.append(score)
             losses.append(loss)
@@ -222,6 +244,7 @@ def train():
             plot(plot_scores,plot_mean_scores, losses)
 
         train_model_iter +=1
+        target_update_iter +=1
 
 if(__name__=="__main__"):
 

@@ -10,14 +10,14 @@ class Linear_QNet(nn.Module):
         super().__init__()
         self.linear1 = nn.Linear(input_size,hidden_size1).cuda()
         #self.relu1 = nn.ReLU().cuda()
-        self.linear2 = nn.Linear(hidden_size1,hidden_size2).cuda()
+        #self.linear2 = nn.Linear(hidden_size1,hidden_size2).cuda()
         #self.relu2 = nn.ReLU().cuda()
         self.linear3 = nn.Linear(hidden_size2,output_size).cuda()
     
     def forward(self, x):
         x = F.relu(self.linear1(x))
         #x = self.relu1(x)
-        x = self.linear2(x)
+        #x = self.linear2(x)
         #x = self.relu2(x)
         x = self.linear3(x)
         return x
@@ -28,10 +28,9 @@ class Linear_QNet(nn.Module):
         torch.save(self.state_dict(),file_name)
 
 class QTrainer:
-    def __init__(self,model,lr,gamma,alpha):
+    def __init__(self,model,lr,gamma):
         self.lr = lr
         self.gamma = gamma
-        self.alpha = alpha
         self.model = model
         self.optimiser = optim.Adam(model.parameters(),lr = self.lr)    
         self.criterion = nn.MSELoss() #nn.HuberLoss()
@@ -39,6 +38,7 @@ class QTrainer:
     def update_targetNN(self):
         # Create a copy of the DNN with the same weights
         self.targetNN = deepcopy(self.model)
+
         
     def train_model(self,state,action,reward,next_state,done):
         state = torch.tensor(state,dtype=torch.float).cuda()
@@ -69,12 +69,11 @@ class QTrainer:
         # Iterate through all states + decisions in the past and 
         # update y according to Q' obtained from the target network
         for t in range(len(done)):
-            for a in range(3):
-                Q_new = reward[t]
-                if not done[t]:
-                    Q_new = Q_new + \
-                        self.gamma * torch.max(self.targetNN(next_state[t])).cuda()
-                y[t][a] = Q_new 
+            Q_new = reward[t]
+            if not done[t]:
+                Q_new = Q_new + \
+                    self.gamma * torch.max(self.model(next_state[t])).cuda()
+                y[t][torch.argmax(action[t]).item()] = Q_new 
 
         # Train the model
         self.optimiser.zero_grad()
