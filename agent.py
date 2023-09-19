@@ -16,7 +16,7 @@ BATCH_SIZE = 1000
 # #How many steps to update the target network and batch-train the model
 # #TARGET_UPDATE_FREQ = 100
 
-FRESHSTART = False
+FRESHSTART = True
 
 class Agent:
     def __init__(self):
@@ -25,7 +25,7 @@ class Agent:
         self.N_exploration_games = 50
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(11,262,33,3) 
+        self.model = Linear_QNet(12,288,36,3) 
         if not FRESHSTART:
             modelpath = r'C:\Users\Asus\Documents\Coding\Python\Machine Learning\SnakeGameRL\model\model.pth'
             self.model.load_state_dict(torch.load(modelpath))
@@ -78,8 +78,8 @@ class Agent:
             game.food.y < game.head.y, # food is up
             game.food.y > game.head.y,  # food is down
 
-            # Distance to food
-            #distance_to_food
+            # Length of the snake
+            len(game.snake)
         ]
         return np.array(state,dtype=int)
 
