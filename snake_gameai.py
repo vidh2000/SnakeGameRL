@@ -49,6 +49,7 @@ class SnakeGameAI:
                       Point(self.head.x-BLOCK_SIZE,self.head.y),
                       Point(self.head.x-(2*BLOCK_SIZE),self.head.y)]
         self.score = 0
+        self.reward = 0
         self.food = None
         self._place__food()
         self.numberEmptyMoves = 0
@@ -64,14 +65,14 @@ class SnakeGameAI:
     def play_step(self,action):
 
         # Reset rewards from the previous step
-        reward = 0
+        self.reward = 0
 
         # Reward for living
-        #reward += 0.0
+        self.reward += 0.0
         
-        # # Calculate distance to food
-        # distance_to_food_old = (self.food.x-self.head.x)**2 + \
-        #                     (self.food.y-self.head.y)**2
+        # Calculate distance to food
+        distance_to_food_old = (self.food.x-self.head.x)**2 + \
+                            (self.food.y-self.head.y)**2
         
 
         # 1. Collect the user input
@@ -81,40 +82,32 @@ class SnakeGameAI:
                 quit()
             
         # 2. Move
-        turn_penalty = 0.0 # penalty for turning too much
+        turn_penalty = 0 # penalty for turning too much
         self._move(action,turn_penalty)
         self.snake.insert(0,self.head)
 
-        # # Calculate new distance to food and if smaller -> award
-        # distance_to_food_new = (self.food.x-self.head.x)**2 + \
-        #                     (self.food.y-self.head.y)**2
+        # Calculate new distance to food and if smaller -> award
+        distance_to_food_new = (self.food.x-self.head.x)**2 + \
+                            (self.food.y-self.head.y)**2
         
-        # if distance_to_food_new<distance_to_food_old:
-        #     self.reward +=0.1
-        # else:
-        #     self.reward -=0.1
+        if distance_to_food_new<distance_to_food_old:
+            self.reward +=0.0
+        else:
+            self.reward -=0.0
 
 
         # 3. Check if game Over
-                # - due to taking too long to find an apple
-                # - due to collision
-                # - due to ...
-        game_over = False 
-        if self.numberEmptyMoves>100*len(self.snake):#self.w*self.h/4:
+        game_over = False        
+        if (self.is_collision() or self.numberEmptyMoves>100*len(self.snake)):
             game_over=True
-            reward = -10
-            return reward,game_over,self.score
-        
-        if (self.is_collision() ):
-            game_over=True
-            reward = -10
-            return reward,game_over,self.score
+            self.reward -= 10
+            return self.reward,game_over,self.score
         
 
         # 4. Place new Food or just move
         if(self.head == self.food):
             self.score +=1
-            reward = 10
+            self.reward +=10
             self.numberEmptyMoves = 0
             self._place__food()
         else:
@@ -125,7 +118,7 @@ class SnakeGameAI:
         self.clock.tick(SPEED)
 
         # 6. Return game Over and Display Score
-        return reward, game_over, self.score
+        return self.reward,game_over,self.score
 
     def _update_ui(self):
         self.display.fill(BLACK)
@@ -140,7 +133,7 @@ class SnakeGameAI:
         self.display.blit(text,[0,0])
         pygame.display.flip()
 
-    def _move(self, action, turn_penalty):
+    def _move(self,action,turn_penalty):
         # Action
         # [1,0,0] -> Straight
         # [0,1,0] -> Right Turn 
@@ -153,11 +146,11 @@ class SnakeGameAI:
         elif np.array_equal(action,[0,1,0]):
             next_idx = (idx + 1) % 4
             new_dir = clock_wise[next_idx] # right Turn
-            #reward -= turn_penalty
+            self.reward -= turn_penalty
         else:
             next_idx = (idx - 1) % 4
             new_dir = clock_wise[next_idx] # Left Turn
-            #reward -= turn_penalty
+            self.reward -= turn_penalty
 
         self.direction = new_dir
 
@@ -172,9 +165,6 @@ class SnakeGameAI:
         elif(self.direction == Direction.UP):
             y-=BLOCK_SIZE
         self.head = Point(x,y)
-
-        #updated_reward = reward
-        #return updated_reward
 
     def is_collision(self,pt=None):
         if(pt is None):

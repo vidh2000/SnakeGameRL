@@ -13,22 +13,22 @@ LR = 0.001
 # How many steps we train on
 BATCH_SIZE = 1000
 
-#How many steps to update the target network and batch-train the model
-TARGET_UPDATE_FREQ = 100
+# #How many steps to update the target network and batch-train the model
+# #TARGET_UPDATE_FREQ = 100
 
-#FRESHSTART = True
+FRESHSTART = False
 
 class Agent:
     def __init__(self):
         self.n_game = 0
-        self.epsilon = 0 # Proportion of random moves initially
-        #self.N_eps_steps = 100
+        self.epsilon = 0.5 # Proportion of random moves initially
+        self.N_exploration_games = 50
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(11,256,3) 
-        # if not FRESHSTART:
-        #     modelpath = r'C:\Users\Asus\Documents\Coding\Python\Machine Learning\SnakeGameRL\model.pth'
-        #     self.model.load_state_dict(torch.load(modelpath))
+        self.model = Linear_QNet(11,262,33,3) 
+        if not FRESHSTART:
+            modelpath = r'C:\Users\Asus\Documents\Coding\Python\Machine Learning\SnakeGameRL\model\model.pth'
+            self.model.load_state_dict(torch.load(modelpath))
 
         self.trainer = QTrainer(self.model,lr=LR,gamma=self.gamma)
 
@@ -103,7 +103,7 @@ class Agent:
         states, actions, rewards, next_states, dones = zip(*mini_sample)
         loss = self.trainer.train_model(
                             states,actions,rewards,next_states,dones)
-        #self.trainer.update_targetNN()
+        self.trainer.update_targetNN()
         return loss
     
     def train_network(self):
@@ -117,42 +117,43 @@ class Agent:
         states,actions,rewards,next_states,dones = zip(*mini_sample)
         self.trainer.train_model(states,actions,rewards,next_states,dones)
 
-    # def get_action(self,state):
-    #     # random moves: tradeoff explotation / exploitation
-    #     # for the first 100 games
-    #     final_move = [0,0,0]
-
-    #     if (self.n_game<self.N_eps_steps and self.epsilon*self.N_eps_steps>0):
-    #         if(random.randint(0, int(self.N_eps_steps)) < self.epsilon*self.N_eps_steps):
-    #             move = random.randint(0,2)
-    #             final_move[move]=1
-
-    #         else:
-    #             state0 = torch.tensor(state,dtype=torch.float)#.cuda()
-    #             prediction = self.model(state0)#.cuda() # prediction by model 
-    #             move = torch.argmax(prediction).item()
-    #             final_move[move]=1 
-    #     else:
-    #         state0 = torch.tensor(state,dtype=torch.float)#.cuda()
-    #         prediction = self.model(state0)#.cuda() # prediction by model 
-    #         move = torch.argmax(prediction).item()
-    #         final_move[move]=1 
-    #     return final_move
-    
-    def get_action(self, state):
-        # random moves: tradeoff exploration / exploitation
-        self.epsilon = 80 - self.n_game
+    def get_action(self,state):
+        # random moves: tradeoff explotation / exploitation
         final_move = [0,0,0]
-        if random.randint(0, 200) < self.epsilon:
-            move = random.randint(0, 2)
-            final_move[move] = 1
-        else:
-            state0 = torch.tensor(state, dtype=torch.float)#.cuda()
-            prediction = self.model(state0)#.cuda()
-            move = torch.argmax(prediction).item()
-            final_move[move] = 1
 
+        if (self.n_game<self.N_exploration_games and 
+                                self.epsilon*self.N_exploration_games>0):
+            if(random.randint(0, int(self.N_exploration_games)) < 
+                        self.epsilon*self.N_exploration_games):
+                move = random.randint(0,2)
+                final_move[move]=1
+
+            else:
+                state0 = torch.tensor(state,dtype=torch.float).cuda()
+                prediction = self.model(state0).cuda() # prediction by model 
+                move = torch.argmax(prediction).item()
+                final_move[move]=1 
+        else:
+            state0 = torch.tensor(state,dtype=torch.float).cuda()
+            prediction = self.model(state0).cuda() # prediction by model 
+            move = torch.argmax(prediction).item()
+            final_move[move]=1 
         return final_move
+    
+    # def get_action(self, state):
+    #     # random moves: tradeoff exploration / exploitation
+    #     self.epsilon = 80 - self.n_game
+    #     final_move = [0,0,0]
+    #     if random.randint(0, 200) < self.epsilon:
+    #         move = random.randint(0, 2)
+    #         final_move[move] = 1
+    #     else:
+    #         state0 = torch.tensor(state, dtype=torch.float).cuda()
+    #         prediction = self.model(state0).cuda()
+    #         move = torch.argmax(prediction).item()
+    #         final_move[move] = 1
+
+    #     return final_move
 
 def train():
     total_score = 0
@@ -170,7 +171,7 @@ def train():
     game = SnakeGameAI()
 
     # Get target network with initial weights to be updated later
-    #agent.trainer.update_targetNN()
+    agent.trainer.update_targetNN()
 
     while True:
 
@@ -201,7 +202,7 @@ def train():
 
         if done:
             # Iterable for updating the explore/exploitation ratio of moves
-            #agent.N_eps_steps -= agent.epsilon
+            #agent.N_exploration_games -= agent.epsilon
 
             # Update target network
             game.reset()
