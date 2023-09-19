@@ -16,39 +16,22 @@ BATCH_SIZE = 1000
 #How many steps to update the target network and batch-train the model
 TARGET_UPDATE_FREQ = 100
 
-FRESHSTART = True
+#FRESHSTART = True
 
 class Agent:
     def __init__(self):
         self.n_game = 0
         self.epsilon = 0 # Proportion of random moves initially
-        self.N_eps_steps = 100
+        #self.N_eps_steps = 100
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(11,256,256,3) 
-        if not FRESHSTART:
-            modelpath = r'C:\Users\Asus\Documents\Coding\Python\Machine Learning\SnakeGameRL\model.pth'
-            self.model.load_state_dict(torch.load(modelpath))
+        self.model = Linear_QNet(11,256,3) 
+        # if not FRESHSTART:
+        #     modelpath = r'C:\Users\Asus\Documents\Coding\Python\Machine Learning\SnakeGameRL\model.pth'
+        #     self.model.load_state_dict(torch.load(modelpath))
 
         self.trainer = QTrainer(self.model,lr=LR,gamma=self.gamma)
-        # for n,p in self.model.named_parameters():
-        #     print(p.device,'',n) 
-        # self.model.to('cuda')   
-        # for n,p in self.model.named_parameters():
-        #     print(p.device,'',n)     
 
-    #   --------------------- state (12 Values) ------------------------
-    # [
-    #   danger straight, danger right, danger left, 
-    #   
-    #   direction left, direction right,
-    #   direction up, direction down
-    # 
-    #   food left,food right,
-    #   food up, food down
-    # 
-    #   #distance between the head and the apple
-    # ]
 
     def get_state(self,game):
         head = game.snake[0]
@@ -62,24 +45,24 @@ class Agent:
         dir_u = game.direction == Direction.UP
         dir_d = game.direction == Direction.DOWN
 
-        distance_to_food = (game.food.x-head.x)**2 + (game.food.y-head.y)**2
+        #distance_to_food = (game.food.x-head.x)**2 + (game.food.y-head.y)**2
 
         state = [
             # Danger Straight
-            (dir_u and game.is_collision(point_u))or
-            (dir_d and game.is_collision(point_d))or
-            (dir_l and game.is_collision(point_l))or
-            (dir_r and game.is_collision(point_r)),
-
-            # Danger right
-            (dir_u and game.is_collision(point_r))or
-            (dir_d and game.is_collision(point_l))or
-            (dir_u and game.is_collision(point_u))or
+            (dir_r and game.is_collision(point_r)) or
+            (dir_l and game.is_collision(point_l)) or
+            (dir_u and game.is_collision(point_u)) or
             (dir_d and game.is_collision(point_d)),
 
+            # Danger right
+            (dir_u and game.is_collision(point_r)) or
+            (dir_d and game.is_collision(point_l)) or
+            (dir_l and game.is_collision(point_u)) or
+            (dir_r and game.is_collision(point_d)),
+
             #Danger Left
-            (dir_u and game.is_collision(point_r))or
-            (dir_d and game.is_collision(point_l))or
+            (dir_d and game.is_collision(point_r)) or
+            (dir_u and game.is_collision(point_l))or
             (dir_r and game.is_collision(point_u))or
             (dir_l and game.is_collision(point_d)),
 
@@ -113,11 +96,11 @@ class Agent:
         update the target network with current model weights
         """
         if (len(self.memory) > BATCH_SIZE):
-            mini_sample = random.sample(self.memory,BATCH_SIZE)
+            mini_sample = random.sample(self.memory, BATCH_SIZE) # list of tuples
         else:
             mini_sample = self.memory
 
-        states,actions,rewards,next_states,dones = zip(*mini_sample)
+        states, actions, rewards, next_states, dones = zip(*mini_sample)
         loss = self.trainer.train_model(
                             states,actions,rewards,next_states,dones)
         #self.trainer.update_targetNN()
@@ -145,13 +128,13 @@ class Agent:
     #             final_move[move]=1
 
     #         else:
-    #             state0 = torch.tensor(state,dtype=torch.float).cuda()
-    #             prediction = self.model(state0).cuda() # prediction by model 
+    #             state0 = torch.tensor(state,dtype=torch.float)#.cuda()
+    #             prediction = self.model(state0)#.cuda() # prediction by model 
     #             move = torch.argmax(prediction).item()
     #             final_move[move]=1 
     #     else:
-    #         state0 = torch.tensor(state,dtype=torch.float).cuda()
-    #         prediction = self.model(state0).cuda() # prediction by model 
+    #         state0 = torch.tensor(state,dtype=torch.float)#.cuda()
+    #         prediction = self.model(state0)#.cuda() # prediction by model 
     #         move = torch.argmax(prediction).item()
     #         final_move[move]=1 
     #     return final_move
@@ -164,8 +147,8 @@ class Agent:
             move = random.randint(0, 2)
             final_move[move] = 1
         else:
-            state0 = torch.tensor(state, dtype=torch.float).cuda()
-            prediction = self.model(state0).cuda()
+            state0 = torch.tensor(state, dtype=torch.float)#.cuda()
+            prediction = self.model(state0)#.cuda()
             move = torch.argmax(prediction).item()
             final_move[move] = 1
 
@@ -187,7 +170,7 @@ def train():
     game = SnakeGameAI()
 
     # Get target network with initial weights to be updated later
-    agent.trainer.update_targetNN()
+    #agent.trainer.update_targetNN()
 
     while True:
 
@@ -212,9 +195,9 @@ def train():
         agent.remember(state_old,final_move,reward,state_new,done)
 
         # Every N steps train on the larger batch and update target network
-        if target_update_iter > TARGET_UPDATE_FREQ:
-            #agent.update_target_network_and_train() 
-            target_update_iter = 0
+        # if target_update_iter > TARGET_UPDATE_FREQ:
+        #     #agent.update_target_network_and_train() 
+        #     target_update_iter = 0
 
         if done:
             # Iterable for updating the explore/exploitation ratio of moves
@@ -227,15 +210,15 @@ def train():
             # Find loss for plotting
             loss = agent.update_target_network_and_train() 
             
-            print('Game:',agent.n_game,'Score:',score, 
-                    "Record:", record, 
-                    "Reward =", round(reward,3))
-            
-            # Save the best model
+             # Save the best model
             if(score > record): 
                 record = score
                 agent.model.save()
+
+            print('Game:',agent.n_game,'Score:',score, 
+                    "Record:", record)
             
+           
             plot_scores.append(score)
             losses.append(loss)
             total_score += score
@@ -247,5 +230,4 @@ def train():
         target_update_iter +=1
 
 if(__name__=="__main__"):
-
     train()
