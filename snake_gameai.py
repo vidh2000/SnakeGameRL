@@ -52,7 +52,6 @@ class SnakeGameAI:
         self.reward = 0  # eat food: +10 , game over: -10 , move: -turn_penalty...
         self.food = None
         self._place__food()
-        self.frame_iteration = 0
         self.numberEmptyMoves = 0
 
     def _place__food(self):
@@ -65,8 +64,13 @@ class SnakeGameAI:
 
     def play_step(self,action):
 
-        self.frame_iteration+=1
-        #self.reward +=1
+        # Reward for living
+        self.reward +=0.1
+        
+        # Calculate distance to food
+        distance_to_food_old = (self.food.x-self.head.x)**2 + \
+                            (self.food.y-self.head.y)**2
+        
 
         # 1. Collect the user input
         for event in pygame.event.get():
@@ -75,9 +79,19 @@ class SnakeGameAI:
                 quit()
             
         # 2. Move
-        turn_penalty = 0 # penalty for turning too much
+        turn_penalty = 0.1 # penalty for turning too much
         self._move(action,turn_penalty)
         self.snake.insert(0,self.head)
+
+        # Calculate new distance to food and if smaller -> award
+        distance_to_food_new = (self.food.x-self.head.x)**2 + \
+                            (self.food.y-self.head.y)**2
+        
+        if distance_to_food_new<distance_to_food_old:
+            self.reward +=1
+        else:
+            self.reward -=1
+
 
         # 3. Check if game Over
                 # - due to taking too long to find an apple
@@ -89,7 +103,7 @@ class SnakeGameAI:
             self.reward -= 10
             return self.reward,game_over,self.score
         
-        if (self.is_collision() or self.frame_iteration > 100*len(self.snake)):
+        if (self.is_collision() ):
             game_over=True
             self.reward -= 10
             return self.reward,game_over,self.score
@@ -98,7 +112,7 @@ class SnakeGameAI:
         # 4. Place new Food or just move
         if(self.head == self.food):
             self.score +=1
-            self.reward +=10
+            self.reward +=100
             self.numberEmptyMoves = 0
             self._place__food()
         else:

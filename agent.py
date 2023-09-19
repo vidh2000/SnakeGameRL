@@ -10,19 +10,19 @@ import multiprocessing as mp
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
 LR = 0.001
-TRAIN_FREQ = 25
+TRAIN_FREQ = 10
 
 FRESHSTART = True
 
 class Agent:
     def __init__(self):
         self.n_game = 0
-        self.epsilon = 0.9 # Proportion of random moves initially
-        self.N_eps_steps = 1000
+        self.epsilon = 0.8 # Proportion of random moves initially
+        self.N_eps_steps = 100
         self.gamma = 0.9 # discount rate
         self.alpha =0.1
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(11,33,33,3) 
+        self.model = Linear_QNet(12,256,36,3) 
         if not FRESHSTART:
             modelpath = r'C:\Users\Asus\Documents\Coding\Python\Machine Learning\SnakeGameRL\model.pth'
             self.model.load_state_dict(torch.load(modelpath))
@@ -58,6 +58,8 @@ class Agent:
         dir_u = game.direction == Direction.UP
         dir_d = game.direction == Direction.DOWN
 
+        distance_to_food = (game.food.x-head.x)**2 + (game.food.y-head.y)**2
+
         state = [
             # Danger Straight
             (dir_u and game.is_collision(point_u))or
@@ -87,7 +89,10 @@ class Agent:
             game.food.x < game.head.x, # food is in left
             game.food.x > game.head.x, # food is in right
             game.food.y < game.head.y, # food is up
-            game.food.y > game.head.y  # food is down
+            game.food.y > game.head.y,  # food is down
+
+            # Distance to food
+            distance_to_food
         ]
         return np.array(state,dtype=int)
 
@@ -96,6 +101,7 @@ class Agent:
 
     def train_long_memory(self):
         if (len(self.memory) > BATCH_SIZE):
+            print("taking minisample")
             mini_sample = random.sample(self.memory,BATCH_SIZE)
         else:
             mini_sample = self.memory
