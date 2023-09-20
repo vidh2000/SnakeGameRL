@@ -16,13 +16,13 @@ BATCH_SIZE = 1000
 # #How many steps to update the target network and batch-train the model
 # #TARGET_UPDATE_FREQ = 100
 
-FRESHSTART = True
+FRESHSTART = False
 
 class Agent:
     def __init__(self):
         self.n_game = 0
         self.epsilon = 0.5 # Proportion of random moves initially
-        self.N_exploration_games = 50
+        self.N_exploration_games = 0
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
         self.model = Linear_QNet(12,288,36,3) 
